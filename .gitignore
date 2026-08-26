@@ -1,0 +1,5 @@
+# このリポは結果を持たない（docs/method.md 11）。
+# scratchpad が紛れ込んだときの保険であって、これに頼って守るものは無い。
+*.raw
+scratch/
+.DS_Store
