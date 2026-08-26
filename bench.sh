@@ -114,7 +114,7 @@ if [ "$BENCH_BACKEND" = "ollama" ]; then
   if [ "$SKIP_PREFLIGHT" != "1" ]; then
     if [ -n "$BENCH_WEIGHT_GB" ]; then
       need=$(awk -v w="$BENCH_WEIGHT_GB" -v h="$MEM_HEADROOM" 'BEGIN{printf "%d", w*h*1073741824}')
-      preflight_gate "$need" || die "stood down at the start gate. Free memory and retry (this host runs production jobs)."
+      preflight_gate "$need" || die "stood down at the start gate: the shortfall is hopeless, not tight (required is >= ${HARD_SHORTFALL_RATIO}x what this host has). A tight fit does not stand down — see docs/method.md 10."
     else
       warn "--weight-gb not given: skipping the start gate (say what you expect to load)"
       need=0

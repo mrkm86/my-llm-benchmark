@@ -33,6 +33,7 @@ report_header() {
 | scenarios path | ${BENCH_SCENARIOS} |
 | fixture version | $(fixture_sha "$BENCH_SCENARIOS") |
 | memory at start | $(mem_snapshot) |
+| 起動時ゲート | ${BENCH_GATE_NOTE:-余裕あり（不足なし）} |
 | gateway at start | ${BENCH_GATEWAY_START} |
 
 ## 結果
@@ -46,6 +47,18 @@ report_row() { printf '| %s | %s | %s | %s | %s | %s | %s |\n' "$@" >> "$BENCH_R
 
 report_footer() {
   {
+    echo
+    echo "## スラッシング"
+    echo
+    # 「動いた／動かない」の外側の答え。押し込んで動いても、代金は秒とページで払っている
+    io=$(swap_io_delta "$BENCH_MONITOR_LOG" 2>/dev/null || echo 0)
+    if [ "${io:-0}" -le 0 ]; then
+      echo "- swapin+swapout の増分: **0 ページ** — 押し出していない。秒はモデルの速度そのもの"
+    else
+      echo "- swapin+swapout の増分: **${io} ページ**（実行中の合計）"
+      echo "- ⚠️ 押し出しながら動いている。**1本あたり秒はこの条件込みの値**で、空いた機械なら速くなる"
+    fi
+    [ -n "${BENCH_GATE_NOTE:-}" ] && echo "- 起動時ゲート: ${BENCH_GATE_NOTE}"
     echo
     echo "## 実行中の監視"
     echo
