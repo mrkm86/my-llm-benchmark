@@ -9,12 +9,12 @@
 # written for was exactly that (`grep -c` skips an unterminated last line, so a
 # 3-paragraph answer counted as 2 and failed a min-3 check it had met).
 #
-#   bash tests/run.sh
+#   ./tests/run.sh        bash / zsh どちらから起動しても通る
 #
 # No network, no model, no ollama. Pure logic.
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 FIX="$ROOT/tests/fixtures"
 PASS=0; FAIL=0
 
