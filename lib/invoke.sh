@@ -72,14 +72,42 @@ fi
 
 # ---- ollama backend ---------------------------------------------------------
 tag="${MODEL#ollama:}"
+
+# Does this model's template actually have a slot for the system message?
+#
+# Some published tags ship TEMPLATE `{{ .Prompt }}` — no chat template at all
+# (granite4.2:3b-q8_0 / 8b-q4_K_M, 2026-08). ollama renders the template, so the
+# system message is dropped on the floor: the model never sees the instruction
+# and answers by continuing the input text. That looks exactly like "the model
+# cannot follow instructions", and it would go into the catalog as such.
+#
+# So we check, and when there is no slot we fold the system text into the prompt
+# — the same thing the anchor path does. Either way the sidecar records which
+# route was taken, because it is a condition of the result, not an implementation
+# detail.
+SYSTEM_DELIVERY="${BENCH_SYSTEM_DELIVERY:-}"
+if [ -z "$SYSTEM_DELIVERY" ]; then
+  if curl -s --max-time 15 "$OLLAMA_HOST/api/show" -d "{\"model\":\"$tag\"}" \
+     | python3 -c 'import json,sys; sys.exit(0 if ".System" in json.load(sys.stdin).get("template","") else 1)' 2>/dev/null; then
+    SYSTEM_DELIVERY="template"
+  else
+    SYSTEM_DELIVERY="prepended"
+  fi
+fi
+
 payload=$(PROMPT_FILE="$PROMPT" SYS="$SYS_TEXT" TAG="$tag" T="$TEMPERATURE" S="$SEED" \
-          C="$NUM_CTX" M="$MAX_TOKENS" python3 -c '
+          C="$NUM_CTX" M="$MAX_TOKENS" DELIVERY="$SYSTEM_DELIVERY" python3 -c '
 import json, os
 p = open(os.environ["PROMPT_FILE"]).read()
-body = {"model": os.environ["TAG"], "prompt": p, "stream": False,
+sys_text = os.environ.get("SYS") or ""
+body = {"model": os.environ["TAG"], "stream": False,
         "options": {"temperature": float(os.environ["T"]), "seed": int(os.environ["S"]),
                     "num_ctx": int(os.environ["C"]), "num_predict": int(os.environ["M"])}}
-if os.environ.get("SYS"): body["system"] = os.environ["SYS"]
+if sys_text and os.environ["DELIVERY"] == "prepended":
+    p = sys_text + "\n\n---\n\n" + p
+elif sys_text:
+    body["system"] = sys_text
+body["prompt"] = p
 print(json.dumps(body))')
 
 resp=$(curl -s --max-time 900 "$OLLAMA_HOST/api/generate" -d "$payload")
@@ -93,7 +121,7 @@ if [ $rc -ne 0 ] || [ -z "$resp" ]; then
 fi
 
 RESP="$resp" OUT_F="$OUT" META_F="${META:-/dev/null}" TAG="$tag" ELAPSED="$elapsed" \
-T="$TEMPERATURE" S="$SEED" C="$NUM_CTX" M="$MAX_TOKENS" python3 -c '
+T="$TEMPERATURE" S="$SEED" C="$NUM_CTX" M="$MAX_TOKENS" DELIVERY="$SYSTEM_DELIVERY" python3 -c '
 import json, os
 r = json.loads(os.environ["RESP"])
 open(os.environ["OUT_F"], "w").write(r.get("response", ""))
@@ -103,6 +131,7 @@ meta = {"backend": "ollama", "model": os.environ["TAG"],
         "prompt_tokens": pt, "eval_tokens": r.get("eval_count"),
         "temperature": float(os.environ["T"]), "seed": int(os.environ["S"]),
         "num_ctx": ctx, "max_tokens": int(os.environ["M"]),
+        "system_delivery": os.environ.get("DELIVERY"),
         # ollama silently drops the head of an over-long prompt: flag it so a
         # bad result is read as "input was cut", not as "the model is weak".
         "truncated": bool(pt is not None and pt >= ctx),

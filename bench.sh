@@ -138,6 +138,20 @@ for m in json.load(sys.stdin).get('models',[]):
 else: print('n/a')" 2>/dev/null || echo n/a)
   [ "$d2" != "n/a" ] && BENCH_DIGEST="$d2"
 
+  # Where the system prompt actually lands. A tag whose TEMPLATE is `{{ .Prompt }}`
+  # has no system slot, and ollama silently drops the instruction — the model then
+  # continues the input text and every stage fails for a reason that has nothing to
+  # do with the model. Decide once here; invoke.sh honours BENCH_SYSTEM_DELIVERY.
+  if printf '%s' "$info" | python3 -c 'import json,sys; sys.exit(0 if ".System" in json.load(sys.stdin).get("template","") else 1)' 2>/dev/null; then
+    BENCH_SYSTEM_DELIVERY="template"
+    BENCH_SYSTEM_NOTE="per scenario / chat template の system スロットに渡す"
+  else
+    BENCH_SYSTEM_DELIVERY="prepended"
+    BENCH_SYSTEM_NOTE="per scenario / ⚠️ このタグに system スロットが無いためプロンプト先頭に連結（アンカーと同じ渡し方）"
+    warn "this tag has no system slot in its template — folding the system prompt into the prompt"
+  fi
+  export BENCH_SYSTEM_DELIVERY
+
   # warm the model, then measure again — inactive pages are not all reclaimable
   curl -s --max-time 300 "$OLLAMA_HOST/api/generate" \
        -d "{\"model\":\"$tag\",\"prompt\":\"ok\",\"stream\":false,\"options\":{\"num_predict\":1,\"num_ctx\":$BENCH_NUM_CTX}}" >/dev/null
