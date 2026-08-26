@@ -26,14 +26,27 @@
 ## 使い方
 
 ```bash
-bash bench.sh --scenarios /path/to/your/scenarios --model granite4.2:8b --runs 3 --weight-gb 5.3
+bash bench.sh --scenarios /path/to/your/scenarios --model granite4:micro --runs 3 --weight-gb 2.0
 ```
 
 まず配線確認（同梱の唯一のシナリオ）:
 
 ```bash
-bash bench.sh --scenarios ./examples --model granite4.2:3b --runs 1 --weight-gb 2.2
+bash bench.sh --scenarios ./examples --model granite4:micro --runs 1 --weight-gb 2.0
 ```
+
+⚠️ **モデルを選ぶ前に、そのタグに chat template があるか見ておくとよい。**
+
+```bash
+curl -s http://127.0.0.1:11434/api/show -d '{"model":"<tag>"}' \
+  | python3 -c 'import json,sys; print(repr(json.load(sys.stdin).get("template","")[:80]))'
+```
+
+`{{ .Prompt }}` の13文字しか返らないタグは **chat template を持っていない**。ollama が
+system プロンプトを捨てるので、モデルは指示に答えず**入力の続きを書く**。それは
+「指示に従えないモデル」と見分けが付かず、そのまま結果として記録されてしまう。
+`.System` か `.Messages` が出てくれば正常（`bench.sh` も同じ判定をして、報告の条件表に
+どちらの経路で渡したかを書く）。
 
 アンカー（いまその仕事を回しているクラウドモデル）を**先に**通す:
 
