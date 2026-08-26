@@ -83,6 +83,27 @@ expect_rc 1 "1行は min 3 で落ちる"            judge_min_lines "$FIX/nonl.t
 expect_rc 0 "3段落は max 3 を通る"            judge_max_lines "$FIX/three-para.txt" 3
 expect_rc 1 "3段落は max 2 で落ちる"          judge_max_lines "$FIX/three-para.txt" 2
 
+sec 'judge_min_chars - 行数では分量を測れないので文字数で見る'
+# three-para.txt is 3 paragraphs but short: it clears a paragraph floor and
+# should still fail a volume floor. That gap is the whole reason this exists.
+expect_rc 0 "3段落は min 3 行を通る"       judge_min_lines "$FIX/three-para.txt" 3
+expect_rc 1 "その3段落は min 200 字で落ちる" judge_min_chars "$FIX/three-para.txt" 200
+expect_rc 0 "十分な分量なら通る"           judge_min_chars "$FIX/long-enough.txt" 200
+# Characters, not bytes, regardless of locale. LANG is deliberately cleared here:
+# that is how a cron or detached job arrives, and it is the case where `wc -m`
+# silently switches to counting bytes and inflates Japanese roughly 3x.
+n=$(env -u LANG -u LC_ALL bash -c "source '$ROOT/lib/judge.sh'; count_chars '$FIX/three-para.txt'")
+b=$(wc -c < "$FIX/three-para.txt" | tr -d ' ')
+wcm=$(env -u LANG -u LC_ALL wc -m < "$FIX/three-para.txt" | tr -d ' ')
+if [ "$n" -lt "$b" ]; then
+  ok "LANG 無しでも文字数を返す -- $n 字 / $b バイト"
+else
+  ng "LANG 無しでバイト数になった -- $n"
+fi
+if [ "$wcm" = "$b" ]; then
+  sec "  [参考] LANG 無しの wc -m は $wcm を返す -- バイト数と同じ。だから使っていない"
+fi
+
 sec 'judge_nonempty'
 expect_rc 0 "中身があれば通る" judge_nonempty "$FIX/nonl.txt"
 expect_rc 1 "空ファイルは落ちる" judge_nonempty "$FIX/empty.txt"

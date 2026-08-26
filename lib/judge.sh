@@ -52,6 +52,29 @@ judge_min_lines() {
   [ "$n" -ge "$2" ] || judge_fail "output has $n non-blank lines (min $2)"
 }
 
+# count_chars <file> — characters, not bytes.
+#
+# ⚠️ Not `wc -m`. It is locale-dependent: with LANG unset — which is how cron and
+# detached job runs arrive — it falls back to counting bytes, and Japanese comes
+# out roughly 3x too large. A threshold picked interactively would then mean
+# something entirely different when the same command ran unattended. python3
+# decodes UTF-8 the same way everywhere. (BB-374; third of the same family after
+# the BB-368 locale bug and the grep line-count split.)
+count_chars() {
+  python3 -c 'import sys; print(len(open(sys.argv[1], encoding="utf-8", errors="replace").read()))' "$1"
+}
+
+# judge_min_chars <file> <n>
+#
+# Line count says whether the text was broken into paragraphs; it says nothing
+# about whether anything was written. A model can clear a paragraph floor with
+# three one-sentence lines. Where a stage is really asking "is there enough
+# here", count characters — it does not care how the model happens to wrap.
+judge_min_chars() {
+  local n; n=$(count_chars "$1")
+  [ "$n" -ge "$2" ] || judge_fail "output has $n characters (min $2)"
+}
+
 # judge_forbidden <file> <patterns-file>
 # patterns-file: one ERE per line; "# " comments and blank lines ignored;
 # an optional "<pattern>\t<label>" second column names the rule in the reason.

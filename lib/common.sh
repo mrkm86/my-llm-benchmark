@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # common.sh — shared helpers. Source this, do not execute.
 
-BENCH_VERSION="v1"
+BENCH_VERSION="v2"
 
 log()  { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
 warn() { printf '[%s] WARN: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
