@@ -153,7 +153,9 @@ report_header "$BENCH_REPORT"
 : > "$BENCH_SCRATCH/gateway.log"
 MONITOR_PID=$(monitor_start "$BENCH_ABORT" "$BENCH_MONITOR_LOG")
 
-overall_pass=""
+passed_stages=""
+first_fail=""
+highest_run=""
 aborted=0
 
 for sdir in "$BENCH_SCENARIOS"/*/; do
@@ -202,13 +204,15 @@ print("%d|%s|%s|%d" % (tot, max(pt) if pt else "n/a", "yes" if tr else "no", len
   printf '%s %s -> %s\n' "$(date '+%H:%M:%S')" "$sname" "$(gateway_alive || true)" >> "$BENCH_SCRATCH/gateway.log"
 
   if [ "$passes" -eq "$BENCH_RUNS" ] && [ "$verdict" -eq 0 ]; then
-    label="0 通過"; [ -z "$overall_pass" ] && overall_pass="$sname" || overall_pass="$sname"
+    label="0 通過"; passed_stages="${passed_stages}${sname} "
+    [ -z "$first_fail" ] && highest_run="$sname"
   else
     case "$verdict" in
       2) label="2 判断できない" ;;
       3) label="3 測れなかった" ;;
       *) label="1 失格" ;;
     esac
+    [ -z "$first_fail" ] && first_fail="$sname"
   fi
   # seconds per case (a "1本" of work), averaged over every call made
   if [ "${tot_calls:-0}" -gt 0 ]; then
@@ -226,7 +230,11 @@ report_footer
   echo
   echo "## まとめ"
   echo
-  echo "- 通った一番上の段: ${overall_pass:-なし}"
+  echo "- 通った段: ${passed_stages:-なし}"
+  # 階段なので「連続して通った一番上」が答え。飛び石で通っても、その上の段は保証されない
+  echo "- **連続して通った一番上の段: ${highest_run:-なし}**"
+  [ -n "$first_fail" ] && [ -n "$passed_stages" ] && \
+    echo "- ⚠️ $first_fail で階段が切れている。それより上の「通過」は飛び石なので、カタログの行には**連続した段まで**を書く"
   echo "- 判定は「全ケース × ${BENCH_RUNS}回すべてが失格条件に当たらない」ときだけ通過"
   [ "$aborted" = "1" ] && echo "- ⚠️ 途中で中断した。落ちたのではなく **測れなかった**"
 } >> "$BENCH_REPORT"
