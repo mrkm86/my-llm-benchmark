@@ -64,6 +64,18 @@ report_footer() {
       echo
       echo "中断条件に当たったので自分で降りた: $(cat "$BENCH_SCRATCH/abort.reason")"
     }
+    # 目視の呼び出し。合否ではないので表には出さず、ここで拾う。
+    reviews=$(find "$BENCH_SCRATCH" -name 'REVIEW-REQUESTED' 2>/dev/null | head -5)
+    if [ -n "$reviews" ]; then
+      echo
+      echo "## 👀 目視の呼び出し"
+      echo
+      for r in $reviews; do
+        echo "- $(basename "$(dirname "$(dirname "$r")")"): $(cat "$r")"
+      done
+      echo
+      echo "（合否は変えない。実際に見るのは**初めてその段を超えたモデルが出たとき**）"
+    fi
     echo
     echo "---"
     echo "判定: 0=通過 / 1=失格 / 2=判断できない（人を呼ぶ） / 3=測れなかった"
