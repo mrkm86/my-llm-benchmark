@@ -32,14 +32,23 @@ judge_nonempty() {
   [ -s "$1" ] || judge_fail "output is empty"
 }
 
+# count_nonblank <file> — non-blank lines.
+#
+# ⚠️ Not `grep -cve '^[[:space:]]*$'`. BSD grep does not count a final line that
+# has no trailing newline, and model output routinely ends without one (the last
+# byte is mid-multibyte). That silently undercounts by one: a 3-paragraph answer
+# reads as 2 and fails a min-3 check it actually met. awk counts records, so it
+# sees the unterminated last line. (BB-374; same family as the BB-368 locale bug.)
+count_nonblank() { awk 'NF' "$1" | wc -l | tr -d ' '; }
+
 # judge_max_lines <file> <n> — non-blank lines
 judge_max_lines() {
-  local n; n=$(grep -cve '^[[:space:]]*$' "$1" || true)
+  local n; n=$(count_nonblank "$1")
   [ "$n" -le "$2" ] || judge_fail "output has $n non-blank lines (max $2)"
 }
 
 judge_min_lines() {
-  local n; n=$(grep -cve '^[[:space:]]*$' "$1" || true)
+  local n; n=$(count_nonblank "$1")
   [ "$n" -ge "$2" ] || judge_fail "output has $n non-blank lines (min $2)"
 }
 
