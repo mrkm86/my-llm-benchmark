@@ -85,10 +85,16 @@ tag="${MODEL#ollama:}"
 # — the same thing the anchor path does. Either way the sidecar records which
 # route was taken, because it is a condition of the result, not an implementation
 # detail.
+# ⚠️ Do not test for ".System" alone. Newer templates (granite4:micro, 7082 chars)
+# never write ".System" — they walk ".Messages" and switch on ".Role", and ollama
+# folds the system field into that list. Testing for ".System" calls those
+# templates broken and needlessly rewrites the prompt.
 SYSTEM_DELIVERY="${BENCH_SYSTEM_DELIVERY:-}"
 if [ -z "$SYSTEM_DELIVERY" ]; then
   if curl -s --max-time 15 "$OLLAMA_HOST/api/show" -d "{\"model\":\"$tag\"}" \
-     | python3 -c 'import json,sys; sys.exit(0 if ".System" in json.load(sys.stdin).get("template","") else 1)' 2>/dev/null; then
+     | python3 -c 'import json,sys
+t = json.load(sys.stdin).get("template","")
+sys.exit(0 if (".System" in t or ".Messages" in t) else 1)' 2>/dev/null; then
     SYSTEM_DELIVERY="template"
   else
     SYSTEM_DELIVERY="prepended"

@@ -142,7 +142,11 @@ else: print('n/a')" 2>/dev/null || echo n/a)
   # has no system slot, and ollama silently drops the instruction — the model then
   # continues the input text and every stage fails for a reason that has nothing to
   # do with the model. Decide once here; invoke.sh honours BENCH_SYSTEM_DELIVERY.
-  if printf '%s' "$info" | python3 -c 'import json,sys; sys.exit(0 if ".System" in json.load(sys.stdin).get("template","") else 1)' 2>/dev/null; then
+  # ".Messages" counts too: newer templates walk the message list instead of
+  # naming .System, and ollama folds the system field into that list.
+  if printf '%s' "$info" | python3 -c 'import json,sys
+t = json.load(sys.stdin).get("template","")
+sys.exit(0 if (".System" in t or ".Messages" in t) else 1)' 2>/dev/null; then
     BENCH_SYSTEM_DELIVERY="template"
     BENCH_SYSTEM_NOTE="per scenario / chat template の system スロットに渡す"
   else
