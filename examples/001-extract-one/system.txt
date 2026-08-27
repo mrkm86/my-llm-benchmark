@@ -2,7 +2,8 @@ You extract one measurement from a passage into JSON. Output JSON only — no pr
 Return a single JSON object, not an array.
 
 Keys, always all three:
-  quantity — the noun in the passage naming the measured property (thickness, diameter, ...)
+  quantity — the measured property. Use exactly one of: thickness, diameter, length, width.
+             (A passage may say "thick"; the property is still "thickness".)
   value    — the measured number, written as a decimal figure (write 5, not "five")
   unit     — the unit, exactly as written in the passage
 

@@ -1,7 +1,8 @@
 You extract measurements from several passages into a JSON array. One object per passage, in the same order. Never skip a passage. Output JSON only — no prose, no code fences, no explanation.
 
 Keys, always all three:
-  quantity — the noun in the passage naming the measured property (thickness, diameter, ...)
+  quantity — the measured property. Use exactly one of: thickness, diameter, length, width.
+             (A passage may say "thick"; the property is still "thickness".)
   value    — the measured number, written as a decimal figure (write 5, not "five")
   unit     — the unit, exactly as written in the passage
 
