@@ -1,0 +1,4 @@
+Extract quantity, value, unit as JSON. Output JSON only.
+
+---
+The glasses b and e were plane-parallel and of the same thickness, 1.25 centimeter.

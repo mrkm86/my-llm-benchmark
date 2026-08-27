@@ -1,0 +1,5 @@
+[
+  {"quantity": "thickness", "value": "1.6",  "unit": "centimeter"},
+  {"quantity": "thickness", "value": "1.25", "unit": "centimeter"},
+  {"quantity": "diameter",  "value": "5",    "unit": "centimeters"}
+]

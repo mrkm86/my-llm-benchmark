@@ -1,0 +1,5 @@
+次の英語の論文本文を、日本語で3行以内に要約してください。
+前置き・見出し・箇条書き記号は書かないでください。原文に無い数字を書かないでください。
+
+---
+On the undulatory theory, according to Fresnel, first, the ether is supposed to be at rest except in the interior of transparent media, in which secondly, it is supposed to move with a velocity less than the velocity of the medium in the ratio (n^2-1)/n^2, where n is the index of refraction. These two hypotheses give a complete and satisfactory explanation of aberration. The second hypothesis, notwithstanding its seeming improbability, must be considered as fully proved, first, by the celebrated experiment of Fizeau, and secondly, by the ample confirmation of our own work. The experimental trial of the first hypothesis forms the subject of the present paper.

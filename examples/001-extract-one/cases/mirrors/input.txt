@@ -1,0 +1,4 @@
+Extract quantity, value, unit as JSON. Output JSON only.
+
+---
+The mirrors dd ee were five centimeters in diameter.

@@ -17,5 +17,6 @@ run_case() { # <name> <max_lines>
 }
 
 run_case capital 1
+run_case one-number 1
 run_case three-lines 3
 judge_finish

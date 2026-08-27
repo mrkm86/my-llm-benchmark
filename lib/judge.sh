@@ -58,6 +58,24 @@ judge_nonempty() {
   [ -s "$1" ] || judge_fail "output is empty"
 }
 
+# judge_silent <file> — 「何も言わないこと」が正解の段で使う。
+# ⚠️ **`examples/` のどの段も、いまはこれを使っていない**（使っていた段は撤去した）。
+# 道具として残してある。テストは tests/run.sh にある。
+#
+# 空、または NO_REPLY だけ（前後の空白は許す）なら合格。**それ以外は1文字でも失格。**
+# 「確認しました。正常です ✅」を通してしまうと、この段は何も測れなくなる
+# — 通知先に毎回1行流れることこそが、この段が防ごうとしている故障だから。
+judge_silent() {
+  local body
+  body=$(python3 -c 'import re,sys
+t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+sys.stdout.write(re.sub(r"\s+", "", t))' "$1")
+  case "$body" in
+    ''|'NO_REPLY') : ;;
+    *) judge_fail "silence expected, but said: $(printf '%s' "$body" | clip 60)" ;;
+  esac
+}
+
 # count_nonblank <file> — non-blank lines.
 #
 # ⚠️ Not `grep -cve '^[[:space:]]*$'`. BSD grep does not count a final line that
@@ -115,29 +133,105 @@ judge_forbidden() {
   done < "$pf"
 }
 
+# strip_fences <file> — write the JSON body to stdout, unwrapping a ```json
+# fence and any surrounding prose. Handles both objects and arrays.
+#
+# Wrapping JSON in a fence is a packaging habit, not a correctness failure, so it
+# is stripped rather than disqualified. **Prose before the JSON is stripped too**
+# — it is the "I will now output JSON" preamble that several models add, and it
+# is the same failure this bench saw a large cloud model make in production.
+strip_fences() {
+  python3 - "$1" <<'PYEOF'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+m = re.search(r"```(?:json)?\s*(.*?)```", t, re.S)
+if m:
+    t = m.group(1)
+m = re.search(r"[\[{].*[\]}]", t, re.S)
+sys.stdout.write(m.group(0) if m else t)
+PYEOF
+}
+
 judge_json() {
   python3 -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$1" 2>/dev/null \
     || judge_fail "output is not valid JSON"
 }
 
+# _judge_norm — JSON の値どうしを比べるための正規化コード（python として exec する）。
+#
+# **単複と大文字小文字を不合格にしない。** `centimeters` を `centimeter` と書いた答えを
+# 落とすと、測っているのは値の正しさではなく英語の語形になる。実測で qwen2.5:1.5b が
+# これだけで 0/3 になり、**抽出できているのに落ちた**という誤った記録が出た。
+# 数値は表記差（5 と "5"、1.0 と 1）も吸収する。
+_judge_norm() {
+  cat <<'NORMEOF'
+def norm(v):
+    if v is None: return "none"
+    if isinstance(v, bool): return str(v).lower()
+    if isinstance(v, (int, float)):
+        f = float(v)
+        return str(int(f)) if f == int(f) else str(f)
+    t = str(v).strip().lower()
+    try:
+        f = float(t)
+        return str(int(f)) if f == int(f) else str(f)
+    except ValueError:
+        pass
+    return t[:-1] if t.endswith("s") and len(t) > 3 else t
+NORMEOF
+}
+
 # judge_json_fields <file> <expected.json> — every key in expected must match
 judge_json_fields() {
   local msg
-  msg=$(python3 - "$1" "$2" <<'PY'
+  msg=$(python3 - "$1" "$2" "$(_judge_norm)" <<'JF'
 import json, sys
+exec(sys.argv[3])
 try:
     got = json.load(open(sys.argv[1], encoding="utf-8"))
 except Exception as e:
     print(f"unparseable JSON ({e})"); sys.exit(0)
 want = json.load(open(sys.argv[2], encoding="utf-8"))
 bad = [f"{k}: expected {v!r}, got {got.get(k)!r}" for k, v in want.items()
-       if str(got.get(k, "")).strip() != str(v).strip()]
+       if norm(got.get(k)) != norm(v)]
 print("; ".join(bad))
-PY
+JF
 )
   [ -z "$msg" ] || judge_fail "$msg"
 }
-
+# judge_json_array_fields <file> <expected.json> — the output must be a JSON
+# array of the same length, and every key in each expected object must match
+# the object at the same index.
+#
+# **件数が合っていることを先に見る。** 3件のうち1件を落としても、残った2件が
+# 正しければ「一致」になる judge を書くと、004 で見た「やり切れない」落ち方
+# （中身は出るが最後まで届かない）を素通りさせる。
+judge_json_array_fields() {
+  local msg
+  msg=$(python3 - "$1" "$2" "$(_judge_norm)" <<'JA'
+import json, sys
+exec(sys.argv[3])
+try:
+    got = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception as e:
+    print(f"unparseable JSON ({e})"); sys.exit(0)
+want = json.load(open(sys.argv[2], encoding="utf-8"))
+if not isinstance(got, list):
+    print(f"expected a JSON array, got {type(got).__name__}"); sys.exit(0)
+if len(got) != len(want):
+    print(f"expected {len(want)} objects, got {len(got)}"); sys.exit(0)
+bad = []
+for i, (g, w) in enumerate(zip(got, want)):
+    if not isinstance(g, dict):
+        bad.append(f"[{i}] not an object"); continue
+    for k, v in w.items():
+        if norm(g.get(k)) != norm(v):
+            bad.append(f"[{i}] {k}: expected {v!r}, got {g.get(k)!r}")
+print("; ".join(bad))
+JA
+)
+  [ -z "$msg" ] || judge_fail "$msg"
+}
 # judge_numbers_subset <output> <source> — every number in the output must
 # appear in the source. Fabricated figures are the failure mode that survives a
 # read-through, so it is worth checking mechanically even though it is crude.
@@ -189,6 +283,30 @@ PY
 }
 
 # judge_covers_all <output> <keys-file> — one required key per line
+# judge_not_echo <out> <input> — 入力を書き写しただけの答えを落とす。
+#
+# judge_covers_all は「必要な語が入っているか」しか見ない。**必要な語が入力に書いてある**
+# 場合、入力をそのまま貼り返すだけで満点になる（006 の初版で実際にそうなった。
+# Granite4 3B が ❌ 行をそのまま返して合格していた）。空振りするテストは、
+# 無いテストより悪い — 通っている限り誰も見に行かないから。
+#
+# 判定: 出力の非空行のうち、**8文字以上のもの**が入力にそのまま含まれていたら失格。
+# 短い行は定型句（「NO_REPLY」等）と区別できないので見ない。
+judge_not_echo() {
+  local out="$1" src="$2" line
+  # `|| [ -n "$line" ]` が要る。**モデル出力は末尾改行が無い**ので、素の read だと
+  # 最終行が落ちる。1行だけの答えは丸ごと素通りして、この判定が何も見なくなる
+  # （このファイルの count_nonblank と同じ穴を、自分で掘った）。
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ -z "$line" ] && continue
+    [ "$(printf '%s' "$line" | wc -c | tr -d ' ')" -lt 24 ] && continue
+    if grep -qF -- "$line" "$src"; then
+      judge_fail "echoed the input verbatim: $(printf '%s' "$line" | clip 40)"
+      return
+    fi
+  done < "$out"
+}
+
 judge_covers_all() {
   local missing=() key
   while IFS= read -r key; do

@@ -198,5 +198,38 @@ else
   ng "全角括弧が \$var の直後にある - $(printf '%s' "$out" | tr '\n' ' ' | clip 120)"
 fi
 
+# ------------------------------------------------- 黙ることが正解の段（006）
+sec '黙ることが正解の段 - judge_silent'
+
+expect_rc 0 '空なら通る'                 judge_silent "$FIX/silent-empty.txt"
+expect_rc 0 '空白だけなら通る'           judge_silent "$FIX/silent-blank.txt"
+expect_rc 0 'NO_REPLY だけなら通る'      judge_silent "$FIX/silent-noreply.txt"
+expect_rc 1 '一言添えたら落ちる'         judge_silent "$FIX/silent-chatty.txt"
+
+# ------------------------------------------------- 書き写しただけの答え
+sec '書き写しただけの答え - judge_not_echo'
+
+# judge_covers_all だけでは、必要な語が入力に書いてあるとき「入力を貼り返す」で満点になる。
+# その空振りを塞いだのが judge_not_echo。**この2件が対になっていることが要点**で、
+# 上だけ通っても意味がない。
+expect_rc 1 '入力をそのまま貼ったら落ちる' judge_not_echo "$FIX/echo-copied.txt" "$FIX/echo-source.txt"
+expect_rc 0 '自分の言葉なら通る'           judge_not_echo "$FIX/echo-rewritten.txt" "$FIX/echo-source.txt"
+# 空振り防止: 書き写し版は covers_all を「通ってしまう」ことを明示しておく
+# （judge_not_echo を消したらこのテストが意味を持つ）
+printf 'kickstart\ndisplay Agent\n' > "$FIX/echo-must-cover.txt"
+expect_rc 0 'covers_all だけなら書き写しでも通ってしまう' \
+  judge_covers_all "$FIX/echo-copied.txt" "$FIX/echo-must-cover.txt"
+
+# ------------------------------------------------- 値の比べ方（単複・数値表記）
+sec '値の比べ方 - 単複と数値表記で落とさない'
+
+# 測りたいのは値の正しさで、英語の語形ではない。実測で qwen2.5:1.5b が
+# centimeters/centimeter の差だけで 0/3 になり、抽出できているのに落ちた。
+expect_rc 0 '単複と大小文字と 5/"5" の差は通す' \
+  judge_json_fields "$FIX/norm-got.json" "$FIX/norm-want.json"
+# ただし**値そのものが違えば落ちる**。上だけ通っても意味がない
+expect_rc 1 '値が違えば落ちる'               \
+  judge_json_fields "$FIX/norm-wrong.json" "$FIX/norm-want.json"
+
 printf '\npass: %d / NG: %d\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

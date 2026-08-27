@@ -1,0 +1,4 @@
+Extract quantity, value, unit as JSON. Output JSON only.
+
+---
+The cast-iron trough cc was 1.6 centimeter thick.

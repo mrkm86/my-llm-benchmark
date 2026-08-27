@@ -1,0 +1,9 @@
+For each of the 3 passages below, produce one JSON object with the keys quantity, value, unit.
+Return a JSON array of 3 objects, in the same order. Output JSON only.
+
+---
+[1] The cast-iron trough cc was 1.6 centimeter thick.
+
+[2] The glasses b and e were plane-parallel and of the same thickness, 1.25 centimeter.
+
+[3] The mirrors dd ee were five centimeters in diameter.
