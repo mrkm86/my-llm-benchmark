@@ -230,6 +230,11 @@ print("%d|%s|%s|%d" % (tot, max(pt) if pt else "n/a", "yes" if tr else "no", len
     label="0 通過"; passed_stages="${passed_stages}${sname} "
     [ -z "$first_fail" ] && highest_run="$sname"
   else
+    # 中途半端（全滅でも全勝でもない）＝決定的でないことが確定した段。
+    # その段だけ --runs を増やして追いかける（docs/method.md 1）。
+    if [ "$passes" -gt 0 ] && [ "$passes" -lt "$BENCH_RUNS" ]; then
+      warn "$sname: $passes/$BENCH_RUNS — 決定的でない。この段だけ --runs 10 で追いかけること"
+    fi
     case "$verdict" in
       2) label="2 判断できない" ;;
       3) label="3 測れなかった" ;;
