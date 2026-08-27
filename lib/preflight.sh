@@ -121,7 +121,7 @@ postload_recheck() {
     return 1
   fi
   if [ "${pl:-1}" -gt 1 ]; then
-    BENCH_GATE_NOTE="${BENCH_GATE_NOTE:+$BENCH_GATE_NOTE / }ロード後にメモリプレッシャー warn（level $pl）"
+    BENCH_GATE_NOTE="${BENCH_GATE_NOTE:+$BENCH_GATE_NOTE / }ロード後にメモリプレッシャー warn（level ${pl}）"
     warn "post-load: pressure level $pl (warn) — going ahead, recording it"
   fi
   return 0

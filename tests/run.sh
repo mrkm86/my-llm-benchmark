@@ -186,5 +186,17 @@ sec 'scenario_verdict - 壊れた判定器をモデルのせいにしない'
 [ "$(scenario_verdict 1 '   ')" = 3 ] && ok "空白だけの出力も測れなかった扱い" || ng "空白だけの出力を失格にしている"
 [ "$(scenario_verdict 2 'UNDECIDABLE: x')" = 2 ] && ok "rc=2 は人を呼ぶ" || ng "rc=2 は人を呼ぶ"
 
+sec '全角括弧が $var の直後に来ていない（BB-368 の再発防止）'
+
+# bash 3.2 は C 以外のロケールで `$pl）` の全角括弧を変数名に吸い込み、set -u の下で
+# 即死する。踏むのは「その文字列を組み立てる条件が揃ったとき」だけなので、普段の
+# テストでは出ない。実際 preflight.sh:124 が、メモリプレッシャーが warn になった
+# 本番の1回だけで死んだ。(BB-375)
+if out=$(python3 "$ROOT/tests/no-fullwidth-after-var.py" "$ROOT" 2>&1); then
+  ok "リポ内の .sh に変数+全角括弧の並びなし"
+else
+  ng "全角括弧が \$var の直後にある - $(printf '%s' "$out" | tr '\n' ' ' | clip 120)"
+fi
+
 printf '\npass: %d / NG: %d\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
