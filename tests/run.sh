@@ -142,5 +142,36 @@ for f in nonl.txt three-para.txt forbidden-lastline.txt numbers-ok.txt; do
   fi
 done
 
+sec 'clip - 報告文の切り詰めは文字単位（バイトではない）'
+
+# 直した回帰そのもの。`cut -c` / `printf '%.Ns'` はロケール次第でバイト単位に落ち、
+# 日本語を多バイトの途中で切る。判定は変わらないので、報告文だけが静かに化ける。
+# 現物の引用がこのベンチの土台なので、土台のほうが壊れていた。(BB-375)
+# clip は判定器の一部なので judge.sh から取る（ここだけ関数を直接使う）
+source "$ROOT/lib/judge.sh"
+JP=$(cat "$FIX/japanese.txt")
+
+got=$(printf '%s' "$JP" | clip 5)
+[ "$got" = "理由：この" ] && ok "先頭5文字を返す" || ng "先頭5文字を返す（実際 ${got}）"
+
+got=$(env -u LANG -u LC_ALL -u LC_CTYPE bash -c "source '$ROOT/lib/judge.sh'; printf '%s' '$JP' | clip 5")
+[ "$got" = "理由：この" ] && ok "LANG が無くても文字単位（cron と同じ条件）" || ng "LANG が無いと化ける（実際 ${got}）"
+
+got=$(printf '%s' "$JP" | clip 100)
+[ "$got" = "$JP" ] && ok "n が長さを超えても壊さない" || ng "n が長さを超えても壊さない"
+
+# 切った断片が「入力に実在するか」の照合に使われる（002 の捏造判定）。
+# バイトで切ると壊れた断片ができ、UTF-8 ロケールの grep が illegal byte sequence で
+# 落ちて、正しいタイトルが「捏造」と誤判定される。
+needle=$(printf '%s' "$JP" | clip 7)
+# ⚠️ 空の needle は grep -F が必ず当たる＝この検査が黙って無意味になる。先に潰す。
+if [ -z "$needle" ]; then
+  ng "clip が空を返した - 照合の検査が成立していない"
+elif grep -qF -- "$needle" "$FIX/japanese.txt" 2>/dev/null; then
+  ok "切った断片が grep -F で照合できる - 捏造の誤判定が起きない"
+else
+  ng "切った断片が grep -F で照合できない - 正しい値を捏造扱いにする"
+fi
+
 printf '\npass: %d / NG: %d\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

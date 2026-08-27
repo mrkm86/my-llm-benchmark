@@ -104,7 +104,7 @@ fi
 payload=$(PROMPT_FILE="$PROMPT" SYS="$SYS_TEXT" TAG="$tag" T="$TEMPERATURE" S="$SEED" \
           C="$NUM_CTX" M="$MAX_TOKENS" DELIVERY="$SYSTEM_DELIVERY" python3 -c '
 import json, os
-p = open(os.environ["PROMPT_FILE"]).read()
+p = open(os.environ["PROMPT_FILE"], encoding="utf-8", errors="replace").read()
 sys_text = os.environ.get("SYS") or ""
 body = {"model": os.environ["TAG"], "stream": False,
         "options": {"temperature": float(os.environ["T"]), "seed": int(os.environ["S"]),
@@ -130,7 +130,7 @@ RESP="$resp" OUT_F="$OUT" META_F="${META:-/dev/null}" TAG="$tag" ELAPSED="$elaps
 T="$TEMPERATURE" S="$SEED" C="$NUM_CTX" M="$MAX_TOKENS" DELIVERY="$SYSTEM_DELIVERY" python3 -c '
 import json, os
 r = json.loads(os.environ["RESP"])
-open(os.environ["OUT_F"], "w").write(r.get("response", ""))
+open(os.environ["OUT_F"], "w", encoding="utf-8").write(r.get("response", ""))
 ctx = int(os.environ["C"]); pt = r.get("prompt_eval_count")
 meta = {"backend": "ollama", "model": os.environ["TAG"],
         "elapsed_sec": int(os.environ["ELAPSED"]),
@@ -143,4 +143,4 @@ meta = {"backend": "ollama", "model": os.environ["TAG"],
         "truncated": bool(pt is not None and pt >= ctx),
         "done_reason": r.get("done_reason"),
         "total_duration_ns": r.get("total_duration")}
-open(os.environ["META_F"], "w").write(json.dumps(meta, ensure_ascii=False, indent=2))'
+open(os.environ["META_F"], "w", encoding="utf-8").write(json.dumps(meta, ensure_ascii=False, indent=2))'

@@ -9,6 +9,18 @@
 # Verdicts:  0 = pass   1 = fail (disqualified)   2 = undecidable (call a human)
 #            3 = could-not-measure (never say "failed" when we never ran it)
 
+# clip <n> — stdin の先頭 n **文字**（バイトではない）を返す。
+#
+# `cut -c` も `printf '%.Ns'` も、ロケール次第で**バイト単位**に落ちる。LANG の無い
+# 環境（cron / ryoko job）では日本語が多バイトの途中で切られ、報告文だけが静かに
+# 文字化けする。判定は変わらないので誰も気づけない。現物の引用がこのベンチの土台
+# なので、土台のほうが壊れる。(BB-375)
+clip() {
+  python3 -c 'import sys
+n = int(sys.argv[1])
+sys.stdout.write(sys.stdin.buffer.read().decode("utf-8", "replace")[:n])' "$1"
+}
+
 JUDGE_REASONS=()
 JUDGE_UNDECIDABLE=()
 
@@ -90,7 +102,7 @@ judge_forbidden() {
 }
 
 judge_json() {
-  python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$1" 2>/dev/null \
+  python3 -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$1" 2>/dev/null \
     || judge_fail "output is not valid JSON"
 }
 
@@ -100,10 +112,10 @@ judge_json_fields() {
   msg=$(python3 - "$1" "$2" <<'PY'
 import json, sys
 try:
-    got = json.load(open(sys.argv[1]))
+    got = json.load(open(sys.argv[1], encoding="utf-8"))
 except Exception as e:
     print(f"unparseable JSON ({e})"); sys.exit(0)
-want = json.load(open(sys.argv[2]))
+want = json.load(open(sys.argv[2], encoding="utf-8"))
 bad = [f"{k}: expected {v!r}, got {got.get(k)!r}" for k, v in want.items()
        if str(got.get(k, "")).strip() != str(v).strip()]
 print("; ".join(bad))
@@ -119,7 +131,7 @@ judge_numbers_subset() {
   local msg
   msg=$(python3 - "$1" "$2" <<'PY'
 import re, sys
-num = lambda p: set(re.findall(r'\d[\d,.]*', open(p).read().replace(',', '')))
+num = lambda p: set(re.findall(r'\d[\d,.]*', open(p, encoding="utf-8", errors="replace").read().replace(',', '')))
 extra = sorted(num(sys.argv[1]) - num(sys.argv[2]))
 print(", ".join(extra[:5]))
 PY
@@ -131,7 +143,7 @@ PY
 judge_japanese() {
   local r; r=$(python3 - "$1" <<'PY'
 import re, sys
-t = open(sys.argv[1]).read()
+t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
 j = len(re.findall(r'[ぁ-んァ-ヶ一-龠]', t))
 print(f"{j/max(len(t.strip()),1):.2f}")
 PY
@@ -149,7 +161,7 @@ judge_ascii_ratio() {
 import re, sys
 maxr, minc = float(sys.argv[2]), int(sys.argv[3])
 bad = []
-for line in open(sys.argv[1]):
+for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
     s = line.strip()
     if len(s) < minc: continue
     letters = re.sub(r'[^A-Za-z぀-ヿ一-鿿]', '', s)

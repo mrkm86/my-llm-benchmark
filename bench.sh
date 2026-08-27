@@ -208,7 +208,7 @@ for sdir in "$BENCH_SCENARIOS"/*/; do
 import glob, json, os
 tot = 0; pt = []; tr = False
 for f in glob.glob(os.path.join(os.environ["RD"], "*.meta.json")):
-    try: m = json.load(open(f))
+    try: m = json.load(open(f, encoding="utf-8"))
     except Exception: continue
     tot += m.get("elapsed_sec") or 0
     if m.get("prompt_tokens"): pt.append(m["prompt_tokens"])
@@ -238,7 +238,7 @@ print("%d|%s|%s|%d" % (tot, max(pt) if pt else "n/a", "yes" if tr else "no", len
   else
     per="-"
   fi
-  report_row "$sname" "$label" "$passes/$BENCH_RUNS" "$per" "${ptoks:-0}" "$trunc" "$(printf '%s' "${reasons:-—}" | tr '\n' ' ' | cut -c1-160)"
+  report_row "$sname" "$label" "$passes/$BENCH_RUNS" "$per" "${ptoks:-0}" "$trunc" "$(printf '%s' "${reasons:-—}" | tr '\n' ' ' | clip 160)"
 done
 
 monitor_stop "$MONITOR_PID"; MONITOR_PID=""
