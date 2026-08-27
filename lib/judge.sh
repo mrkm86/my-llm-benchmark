@@ -21,6 +21,20 @@ n = int(sys.argv[1])
 sys.stdout.write(sys.stdin.buffer.read().decode("utf-8", "replace")[:n])' "$1"
 }
 
+# normalize_answer <file> — 単答（yes/no）の比較用。空白・引用符・句読点を落として小文字化。
+#
+# ⚠️ ここを `tr -d` でやらないこと。BSD の tr は削除セットを**バイト**で扱うので、
+#    「、。」を渡すと 0xE3/0x80/0x81/0x82 を全部消す＝ひらがな・カタカナが丸ごと壊れる。
+#    先頭が ASCII なら判定は変わらないため、報告文だけが静かに化ける。(BB-375)
+#
+# Python コード内に ' を書かない（\x27 で表す）。bash 3.2 は $( ) の中の
+# ヒアドキュメントに ' が入ると閉じ括弧を見失う。
+normalize_answer() {
+  python3 -c 'import re, sys
+t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+sys.stdout.write(re.sub(r"[\s\"\x27.\u3001\u3002]", "", t).lower())' "$1"
+}
+
 JUDGE_REASONS=()
 JUDGE_UNDECIDABLE=()
 

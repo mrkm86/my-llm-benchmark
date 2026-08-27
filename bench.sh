@@ -197,11 +197,16 @@ for sdir in "$BENCH_SCENARIOS"/*/; do
           bash "$sdir/run-test.sh" 2>"$rundir/stderr.log")
     rc=$?
     printf '%s\n' "$out" > "$rundir/verdict.txt"
-    case $rc in
+    case "$(scenario_verdict "$rc" "$out")" in
       0) passes=$((passes+1)) ;;
+      1) [ "$verdict" -eq 0 ] && verdict=1; reasons="${reasons}${out} " ;;
       2) verdict=2; reasons="${reasons}${out} " ;;
-      3) [ "$verdict" -lt 3 ] && verdict=3; reasons="${reasons}${out} " ;;
-      *) [ "$verdict" -eq 0 ] && verdict=1; reasons="${reasons}${out} " ;;
+      3) [ "$verdict" -lt 3 ] && verdict=3
+         if [ -n "$(printf '%s' "$out" | tr -d '[:space:]')" ]; then
+           reasons="${reasons}${out} "
+         else
+           reasons="${reasons}シナリオが実行できなかった（rc=${rc}・理由なし）: $(tr '\n' ' ' < "$rundir/stderr.log" | clip 120) "
+         fi ;;
     esac
     # roll up the per-call sidecars this run produced
     s=$(RD="$rundir" python3 -c '

@@ -25,3 +25,18 @@ fixture_sha() {
   find "$dir" -type f \( -name '*.txt' -o -name '*.json' -o -name '*.md' \) -print0 2>/dev/null \
     | sort -z | xargs -0 shasum 2>/dev/null | shasum | cut -c1-12
 }
+
+# scenario_verdict <rc> <stdout> — シナリオ1回分の終了コードを判定に翻訳する。
+#
+# ⚠️ 判定器が理由を1つも出さずに落ちたら、それは「モデルが失格」ではなく
+#    「測れていない」。bash は**構文エラーでも rc=1 で死ぬ**ので、区別しないと
+#    壊れた判定器の巻き添えをモデルが被る。しかも壊れ方の欄が空になるだけなので、
+#    レポートは「失格・理由なし」という**もっともらしい顔**で出てくる。(BB-375)
+scenario_verdict() {
+  case "$1" in
+    0) echo 0 ;;
+    2) echo 2 ;;
+    3) echo 3 ;;
+    *) if [ -z "$(printf '%s' "$2" | tr -d '[:space:]')" ]; then echo 3; else echo 1; fi ;;
+  esac
+}

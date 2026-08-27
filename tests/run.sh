@@ -149,6 +149,7 @@ sec 'clip - 報告文の切り詰めは文字単位（バイトではない）'
 # 現物の引用がこのベンチの土台なので、土台のほうが壊れていた。(BB-375)
 # clip は判定器の一部なので judge.sh から取る（ここだけ関数を直接使う）
 source "$ROOT/lib/judge.sh"
+source "$ROOT/lib/common.sh"
 JP=$(cat "$FIX/japanese.txt")
 
 got=$(printf '%s' "$JP" | clip 5)
@@ -172,6 +173,18 @@ elif grep -qF -- "$needle" "$FIX/japanese.txt" 2>/dev/null; then
 else
   ng "切った断片が grep -F で照合できない - 正しい値を捏造扱いにする"
 fi
+
+sec 'scenario_verdict - 壊れた判定器をモデルのせいにしない'
+
+# 実際に踏んだ形: 判定器に構文エラーを入れてしまい、bash が **何も実行しないまま
+# rc=1** で死んだ。理由が1つも出ていない rc=1 は「失格」ではなく
+# 「測れなかった」。ここを分けないと、レポートが「失格・理由なし」という
+# もっともらしい顔で出てくる。(BB-375)
+[ "$(scenario_verdict 0 '')" = 0 ] && ok "rc=0 は通過" || ng "rc=0 は通過"
+[ "$(scenario_verdict 1 'DISQUALIFIED: x')" = 1 ] && ok "理由のある rc=1 は失格" || ng "理由のある rc=1 は失格"
+[ "$(scenario_verdict 1 '')" = 3 ] && ok "理由の無い rc=1 は測れなかった扱い" || ng "理由の無い rc=1 を失格にしている"
+[ "$(scenario_verdict 1 '   ')" = 3 ] && ok "空白だけの出力も測れなかった扱い" || ng "空白だけの出力を失格にしている"
+[ "$(scenario_verdict 2 'UNDECIDABLE: x')" = 2 ] && ok "rc=2 は人を呼ぶ" || ng "rc=2 は人を呼ぶ"
 
 printf '\npass: %d / NG: %d\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
